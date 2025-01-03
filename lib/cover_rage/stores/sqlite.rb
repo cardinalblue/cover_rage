@@ -11,6 +11,7 @@ module CoverRage
         @mutex = Mutex.new
         @path = path
         @db = SQLite3::Database.new(path)
+        @db.busy_handler { true }
         @db.execute <<-SQL
           create table if not exists records (
             path text primary key not null,
@@ -25,6 +26,7 @@ module CoverRage
             store.instance_variable_get(:@db).close
             pid = super()
             store.instance_variable_set(:@db, SQLite3::Database.new(path))
+            store.instance_variable_get(:@db).busy_handler { true }
             pid
           end
         end
@@ -34,8 +36,6 @@ module CoverRage
       def transaction(&)
         @mutex.synchronize do
           @db.transaction(:exclusive, &)
-        rescue SQLite3::BusyException
-          retry
         end
       end
 
