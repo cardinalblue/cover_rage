@@ -21,9 +21,5 @@ Gem::Specification.new do |spec|
   spec.files = Dir['lib/**/*']
   spec.executables = ['cover_rage']
   spec.add_dependency 'pstore'
-  spec.add_development_dependency 'minitest', '~> 5.18'
-  spec.add_development_dependency 'rake', '~> 13.0'
-  spec.add_development_dependency 'redis', '~> 5.3'
-  spec.add_development_dependency 'sqlite3', '~> 2.5'
   spec.metadata['rubygems_mfa_required'] = 'true'
 end
