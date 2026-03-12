@@ -42,11 +42,15 @@ module CoverRage
         relative_path = filepath.delete_prefix(@path_prefix)
         revision, source = read_file_with_revision(filepath)
 
+        now = Time.now.to_i
+        last_executed_at = execution_count.map { |c| c&.positive? ? now : nil }
+
         records << Record.new(
           path: relative_path,
           revision:,
           source:,
-          execution_count:
+          execution_count:,
+          last_executed_at:
         )
       end
       return unless records.any?

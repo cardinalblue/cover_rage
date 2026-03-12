@@ -13,7 +13,8 @@ class TestRecord < Minitest::Test
           path: 'foo.rb',
           revision: '1',
           source: '',
-          execution_count: [2, nil]
+          execution_count: [2, nil],
+          last_executed_at: [200, nil]
         )
       ],
       CoverRage::Record.merge(
@@ -22,7 +23,8 @@ class TestRecord < Minitest::Test
             path: 'foo.rb',
             revision: '1',
             source: '',
-            execution_count: [1, nil]
+            execution_count: [1, nil],
+            last_executed_at: [100, nil]
           )
         ],
         [
@@ -30,7 +32,8 @@ class TestRecord < Minitest::Test
             path: 'foo.rb',
             revision: '1',
             source: '',
-            execution_count: [1, nil]
+            execution_count: [1, nil],
+            last_executed_at: [200, nil]
           )
         ]
       )
@@ -44,7 +47,8 @@ class TestRecord < Minitest::Test
           path: 'foo.rb',
           revision: '2',
           source: '',
-          execution_count: [1, nil]
+          execution_count: [1, nil],
+          last_executed_at: [200, nil]
         )
       ],
       CoverRage::Record.merge(
@@ -53,7 +57,8 @@ class TestRecord < Minitest::Test
             path: 'foo.rb',
             revision: '1',
             source: '',
-            execution_count: [1, nil]
+            execution_count: [1, nil],
+            last_executed_at: [100, nil]
           )
         ],
         [
@@ -61,7 +66,8 @@ class TestRecord < Minitest::Test
             path: 'foo.rb',
             revision: '2',
             source: '',
-            execution_count: [1, nil]
+            execution_count: [1, nil],
+            last_executed_at: [200, nil]
           )
         ]
       )
@@ -75,7 +81,8 @@ class TestRecord < Minitest::Test
           path: 'bar.rb',
           revision: '1',
           source: '',
-          execution_count: [1, nil]
+          execution_count: [1, nil],
+          last_executed_at: [200, nil]
         )
       ],
       CoverRage::Record.merge(
@@ -84,7 +91,8 @@ class TestRecord < Minitest::Test
             path: 'foo.rb',
             revision: '1',
             source: '',
-            execution_count: [1, nil]
+            execution_count: [1, nil],
+            last_executed_at: [100, nil]
           )
         ],
         [
@@ -92,7 +100,8 @@ class TestRecord < Minitest::Test
             path: 'bar.rb',
             revision: '1',
             source: '',
-            execution_count: [1, nil]
+            execution_count: [1, nil],
+            last_executed_at: [200, nil]
           )
         ]
       )
@@ -104,14 +113,18 @@ class TestRecord < Minitest::Test
       path: '',
       revision: '',
       source: '',
-      execution_count: [1, nil]
+      execution_count: [1, nil],
+      last_executed_at: [100, nil]
     )
     r2 = CoverRage::Record.new(
       path: '',
       revision: '',
       source: '',
-      execution_count: [2, nil]
+      execution_count: [2, nil],
+      last_executed_at: [200, nil]
     )
-    assert_equal [3, nil], (r1 + r2).execution_count
+    result = r1 + r2
+    assert_equal [3, nil], result.execution_count
+    assert_equal [200, nil], result.last_executed_at
   end
 end

@@ -26,6 +26,7 @@ module TestStore
               revision: '',
               source: 'a = 1',
               execution_count: [0],
+              last_executed_at: [0],
               **
             )
           end

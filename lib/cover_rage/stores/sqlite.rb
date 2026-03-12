@@ -17,7 +17,8 @@ module CoverRage
             path text primary key not null,
             revision blob not null,
             source text not null,
-            execution_count text not null
+            execution_count text not null,
+            last_executed_at text not null
           )
         SQL
         process_ext = Module.new
@@ -41,15 +42,16 @@ module CoverRage
 
       def update(records)
         @db.execute(
-          "insert or replace into records (path, revision, source, execution_count) values #{
-            (['(?,?,?,?)'] * records.length).join(',')
+          "insert or replace into records (path, revision, source, execution_count, last_executed_at) values #{
+            (['(?,?,?,?,?)'] * records.length).join(',')
           }",
           records.each_with_object([]) do |record, memo|
             memo.push(
               record.path,
               record.revision,
               record.source,
-              JSON.dump(record.execution_count)
+              JSON.dump(record.execution_count),
+              JSON.dump(record.last_executed_at)
             )
           end
         )
@@ -57,13 +59,14 @@ module CoverRage
 
       def list
         @db
-          .execute('select path, revision, source, execution_count from records')
-          .map do |(path, revision, source, execution_count)|
+          .execute('select path, revision, source, execution_count, last_executed_at from records')
+          .map do |(path, revision, source, execution_count, last_executed_at)|
             Record.new(
               path:,
               revision:,
               source:,
-              execution_count: JSON.parse(execution_count)
+              execution_count: JSON.parse(execution_count),
+              last_executed_at: JSON.parse(last_executed_at)
             )
           end
       end

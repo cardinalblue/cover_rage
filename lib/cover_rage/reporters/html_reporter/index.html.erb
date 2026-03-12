@@ -27,9 +27,16 @@
       .number {
         display: inline-block;
         text-align: right;
-        margin-right: 0.5em;
         background-color: lightgray;
         padding: 0 0.5em 0 1.5em;
+      }
+
+      .timestamp {
+        display: inline-block;
+        text-align: right;
+        margin-right: 0.5em;
+        background-color: lightgray;
+        padding: 0 0.5em 0 0.5em;
       }
 
       .nav {
@@ -123,9 +130,13 @@
               if (typeof value === "number")
                 color = value > 0 ? "green" : "red";
               const number = typeof value === "number" ? value : "-";
-              return `<span class="line ${color}"><span class="number">${number
-                .toString()
-                .padStart(digit_width, " ")}</span>${line}</span>`;
+              const posix_time = record.last_executed_at[index];
+              const iso8601_time = typeof posix_time === "number" ? new Date(posix_time * 1000).toISOString().slice(0, 10) : "-";
+              return `<span class="line ${color}"><span class="number">${
+                  number.toString().padStart(digit_width, " ")
+                }</span><time class="timestamp">${
+                  iso8601_time.padStart(10, " ")
+                }</time>${line}</span>`;
             })
             .join("\n");
         }
