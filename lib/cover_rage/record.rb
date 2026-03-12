@@ -25,7 +25,7 @@ module CoverRage
           if item.nil? && other.last_executed_at[index].nil? then nil
           elsif item.nil? then other.last_executed_at[index]
           elsif other.last_executed_at[index].nil? then item
-          else [item.to_i, other.last_executed_at[index].to_i].max
+          else [item, other.last_executed_at[index]].max
           end
         end
       )
