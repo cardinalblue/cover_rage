@@ -2,7 +2,6 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CoverRage</title>
     <link
@@ -15,50 +14,41 @@
         display: inline-block;
         counter-increment: line_number;
       }
-
-      .green {
-        background-color: rgb(221, 255, 221);
-      }
-
-      .red {
-        background-color: rgb(255, 212, 212);
-      }
-
+      .green { background-color: rgb(221, 255, 221); }
+      .blue { background-color: rgb(221, 221, 255); }
+      .red { background-color: rgb(255, 212, 212); }
       .number {
         display: inline-block;
         text-align: right;
         background-color: lightgray;
         padding: 0 0.5em 0 1.5em;
       }
-
       .timestamp {
         display: inline-block;
         text-align: right;
         margin-right: 0.5em;
         background-color: lightgray;
-        padding: 0 0.5em 0 0.5em;
+        padding: 0 0.5em;
       }
-
       .nav {
         display: flex;
         list-style: none;
         padding-left: 0;
-      }
-      .nav > * {
-        margin-left: 8px;
+        gap: 8px;
       }
     </style>
   </head>
   <body>
     <main id="main"></main>
 
-    <div style="display: none">
-      <div id="page-index">
+    <template id="tmpl-index">
+      <div>
         <nav>
           <ul class="nav">
             <li><a href="#/">Index</a></li>
           </ul>
         </nav>
+        <label>stale threshold <input id="stale-threshold" type="number" min="0" value="30"> days</label>
         <table>
           <thead>
             <tr>
@@ -67,160 +57,154 @@
               <th>relevancy</th>
               <th>hit</th>
               <th>miss</th>
+              <th>stale</th>
               <th>coverage (%)</th>
+              <th>staleness (%)</th>
             </tr>
           </thead>
           <tbody></tbody>
         </table>
       </div>
-      <div id="page-file">
+    </template>
+
+    <template id="tmpl-file">
+      <div>
         <nav>
           <ul class="nav">
             <li><a href="#/">Index</a></li>
-            <li>></li>
+            <li>&gt;</li>
             <li id="title"></li>
           </ul>
         </nav>
+        <label>stale threshold <input id="stale-threshold" type="number" min="0" value="30"> days</label>
         <pre><code id="code"></code></pre>
       </div>
-    </div>
+    </template>
 
     <script id="records" type="application/json"><%= records %></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script>
+      const records = JSON.parse(document.getElementById("records").textContent);
       const main = document.getElementById("main");
-      const page_index = document.getElementById("page-index");
-      const title = document.createTextNode("");
-      document.getElementById("title").appendChild(title);
-      const code = document.getElementById("code");
-      const page_file = document.getElementById("page-file");
-      const records = JSON.parse(
-        document.getElementById("records").childNodes[0].nodeValue
-      );
 
-      const route = (path) => {
-        if (path.startsWith("/file/")) {
-          const filepath = path.slice(6);
-          if (records.find((record) => record.path === filepath))
-            return { page: "file", path: filepath };
+      function route() {
+        const hash = window.location.hash.slice(1);
+        if (hash.startsWith("/file/")) {
+          const path = hash.slice(6);
+          const record = records.find((r) => r.path === path);
+          if (record) return { page: "file", path, record };
         }
-
         return { page: "index" };
-      };
+      }
 
-      const render = (routing) => {
-        let page;
-        if (routing.page === "file") {
-          const record = records.find(({ path }) => path === routing.path);
-          page = page_file;
-          title.nodeValue = routing.path;
-          const digit_width =
-            Math.floor(Math.log10(Math.max(...record.execution_count))) + 1;
-          code.innerHTML = hljs
-            .highlight(
-              records.find(({ path }) => path === routing.path).source,
-              {
-                language: "ruby",
-              }
-            )
-            .value.split("\n")
-            .map((line, index) => {
-              const value = record.execution_count[index];
-              let color = "";
-              if (typeof value === "number")
-                color = value > 0 ? "green" : "red";
-              const number = typeof value === "number" ? value : "-";
-              const posix_time = record.last_executed_at[index];
-              const iso8601_time = typeof posix_time === "number" ? new Date(posix_time * 1000).toISOString().slice(0, 10) : "-";
-              return `<span class="line ${color}"><span class="number">${
-                  number.toString().padStart(digit_width, " ")
-                }</span><time class="timestamp">${
-                  iso8601_time.padStart(10, " ")
-                }</time>${line}</span>`;
-            })
-            .join("\n");
+      function cloneTemplate(id) {
+        return document.getElementById(id).content.cloneNode(true).firstElementChild;
+      }
+
+      function formatDate(posixTime) {
+        if (typeof posixTime !== "number") return "-";
+        return new Date(posixTime * 1000).toISOString().slice(0, 10);
+      }
+
+      function colorClass(count, lastExecutedAt, staleThresholdDays) {
+        if (typeof count !== "number") return "";
+        if (count === 0) return "red";
+        if (typeof lastExecutedAt === "number") {
+          const ageDays = (Date.now() / 1000 - lastExecutedAt) / 86400;
+          if (ageDays > staleThresholdDays) return "blue";
         }
-        if (routing.page === "index") {
-          page = page_index;
+        return "green";
+      }
+
+      function summarize({ path, execution_count, last_executed_at }, staleThresholdDays) {
+        let hit = 0, miss = 0, relevancy = 0, stale = 0;
+        const staleCutoff = Date.now() / 1000 - staleThresholdDays * 86400;
+        for (let i = 0; i < execution_count.length; i++) {
+          const count = execution_count[i];
+          if (count !== null) {
+            relevancy++;
+            if (count > 0) {
+              hit++;
+              const t = last_executed_at[i];
+              if (typeof t === "number" && t < staleCutoff) stale++;
+            } else {
+              miss++;
+            }
+          }
         }
-        if (main.childNodes.length === 0) main.appendChild(page);
-        else main.replaceChild(page, main.childNodes[0]);
-      };
-      const createTdTextNode = (text) => {
-        const td = document.createElement("td");
-        td.appendChild(document.createTextNode(text));
-        return td;
-      };
+        return {
+          path,
+          lines: execution_count.length,
+          relevancy,
+          hit,
+          miss,
+          stale,
+          coverage: hit / relevancy,
+          staleness: stale / relevancy,
+        };
+      }
 
-      page_index.querySelector("tbody").appendChild(
-        records
-          .map(({ path, revision, source, execution_count }) => {
-            const hit = execution_count.reduce(
-              (accumulator, current) =>
-                current > 0 ? accumulator + 1 : accumulator,
-              0
-            );
-            const miss = execution_count.reduce(
-              (accumulator, current) =>
-                current === 0 ? accumulator + 1 : accumulator,
-              0
-            );
-            const relevancy = execution_count.reduce(
-              (accumulator, current) =>
-                current !== null ? accumulator + 1 : accumulator,
-              0
-            );
-            const coverage = hit / relevancy;
-            return {
-              path,
-              lines: execution_count.length,
-              hit,
-              miss,
-              relevancy,
-              coverage,
-            };
+      let staleThresholdDays = 30;
+
+      function getStaleThreshold(el) {
+        const input = el.querySelector("#stale-threshold");
+        input.value = staleThresholdDays;
+        input.addEventListener("change", () => {
+          staleThresholdDays = Number(input.value) || 30;
+          render();
+        });
+        return staleThresholdDays;
+      }
+
+      function renderIndex() {
+        const el = cloneTemplate("tmpl-index");
+        const staleThresholdDays = getStaleThreshold(el);
+        const tbody = el.querySelector("tbody");
+        const rows = records.map((r) => summarize(r, staleThresholdDays)).sort((a, b) => {
+          if (isNaN(b.coverage)) return -1;
+          if (isNaN(a.coverage)) return 1;
+          return a.coverage - b.coverage;
+        });
+        for (const { path, lines, relevancy, hit, miss, stale, coverage, staleness } of rows) {
+          const tr = tbody.insertRow();
+          tr.insertCell().innerHTML = `<a href="#/file/${path}">${path}</a>`;
+          tr.insertCell().textContent = lines;
+          tr.insertCell().textContent = relevancy;
+          tr.insertCell().textContent = hit;
+          tr.insertCell().textContent = miss;
+          tr.insertCell().textContent = stale;
+          tr.insertCell().textContent = Math.round(coverage * 10000) / 100;
+          tr.insertCell().textContent = Math.round(staleness * 10000) / 100;
+        }
+        return el;
+      }
+
+      function renderFile(record) {
+        const el = cloneTemplate("tmpl-file");
+        const staleThresholdDays = getStaleThreshold(el);
+        el.querySelector("#title").textContent = record.path;
+        const digitWidth = Math.floor(Math.log10(Math.max(...record.execution_count))) + 1;
+        const highlighted = hljs.highlight(record.source, { language: "ruby" }).value;
+        el.querySelector("#code").innerHTML = highlighted
+          .split("\n")
+          .map((line, i) => {
+            const count = record.execution_count[i];
+            const displayCount = typeof count === "number" ? String(count).padStart(digitWidth) : "-".padStart(digitWidth);
+            const date = formatDate(record.last_executed_at[i]).padStart(10);
+            return `<span class="line ${colorClass(count, record.last_executed_at[i], staleThresholdDays)}"><span class="number">${displayCount}</span><time class="timestamp">${date}</time>${line}</span>`;
           })
-          .sort(({ coverage: a }, { coverage: b }) => {
-            if (isNaN(b)) return -1;
-            if (isNaN(a)) return 1;
-            return a - b;
-          })
-          .reduce(
-            (fragment, { path, lines, hit, miss, relevancy, coverage }) => {
-              const tr = document.createElement("tr");
-              tr.appendChild(
-                (() => {
-                  const anchor = document.createElement("a");
-                  anchor.href = `#/file/${path}`;
-                  anchor.appendChild(document.createTextNode(path));
-                  const td = document.createElement("td");
-                  td.appendChild(anchor);
-                  return td;
-                })()
-              );
-              tr.appendChild(createTdTextNode(lines));
-              tr.appendChild(createTdTextNode(relevancy));
-              tr.appendChild(createTdTextNode(hit));
-              tr.appendChild(createTdTextNode(miss));
-              tr.appendChild(
-                createTdTextNode(Math.round(coverage * 10000) / 100)
-              );
-              fragment.appendChild(tr);
-              return fragment;
-            },
-            document.createDocumentFragment()
-          )
-      );
+          .join("\n");
+        return el;
+      }
 
-      document.addEventListener("DOMContentLoaded", () => {
-        const routing = route(window.location.hash.slice(1));
-        render(routing);
-      });
+      function render() {
+        const routing = route();
+        const page = routing.page === "file" ? renderFile(routing.record) : renderIndex();
+        main.replaceChildren(page);
+      }
 
-      window.addEventListener("popstate", (event) => {
-        const routing = route(window.location.hash.slice(1));
-        render(routing);
-      });
+      render();
+      window.addEventListener("hashchange", render);
     </script>
   </body>
 </html>
