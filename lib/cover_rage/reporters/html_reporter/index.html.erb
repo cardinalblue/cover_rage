@@ -58,8 +58,8 @@
               <th>hit</th>
               <th>miss</th>
               <th>stale</th>
-              <th>coverage (%)</th>
-              <th>staleness (%)</th>
+              <th class="sortable" data-sort="coverage" style="cursor:pointer">coverage (%) ▼</th>
+              <th class="sortable" data-sort="staleness" style="cursor:pointer">staleness (%)</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -145,6 +145,8 @@
       }
 
       let staleThresholdDays = 30;
+      let sortKey = "coverage";
+      let sortAsc = true;
 
       function getStaleThreshold(el) {
         const input = el.querySelector("#stale-threshold");
@@ -160,10 +162,19 @@
         const el = cloneTemplate("tmpl-index");
         const staleThresholdDays = getStaleThreshold(el);
         const tbody = el.querySelector("tbody");
+        el.querySelectorAll(".sortable").forEach((th) => {
+          const key = th.dataset.sort;
+          th.textContent = th.textContent.replace(/ [▲▼]$/, "") + (sortKey === key ? (sortAsc ? " ▲" : " ▼") : "");
+          th.addEventListener("click", () => {
+            if (sortKey === key) { sortAsc = !sortAsc; } else { sortKey = key; sortAsc = true; }
+            render();
+          });
+        });
         const rows = records.map((r) => summarize(r, staleThresholdDays)).sort((a, b) => {
-          if (isNaN(b.coverage)) return -1;
-          if (isNaN(a.coverage)) return 1;
-          return a.coverage - b.coverage;
+          const av = a[sortKey], bv = b[sortKey];
+          if (isNaN(bv)) return -1;
+          if (isNaN(av)) return 1;
+          return sortAsc ? av - bv : bv - av;
         });
         for (const { path, lines, relevancy, hit, miss, stale, coverage, staleness } of rows) {
           const tr = tbody.insertRow();
