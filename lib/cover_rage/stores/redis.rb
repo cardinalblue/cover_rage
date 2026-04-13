@@ -9,13 +9,10 @@ module CoverRage
   module Stores
     class Redis
       KEY = 'cover_rage_records'
+      IS_REDIS_BELOW_V5 = Gem::Version.new(::Redis::VERSION) < Gem::Version.new('5')
       def initialize(url)
-        @redis =
-          if url.start_with?('rediss')
-            ::Redis.new(url:, ssl_params: { verify_mode: OpenSSL::SSL::VERIFY_NONE })
-          else
-            ::Redis.new(url:)
-          end
+        @redis = new_redis(url)
+        @redis_for_below_v5 = new_redis(url) if IS_REDIS_BELOW_V5
       end
 
       def transaction(&)
@@ -42,7 +39,8 @@ module CoverRage
       end
 
       def list
-        result = @redis.hgetall(KEY)
+        client = Thread.current[:redis_multi] && IS_REDIS_BELOW_V5 ? @redis_for_below_v5 : @redis
+        result = client.hgetall(KEY)
         return [] if result.empty?
 
         result.map { |_, value| Record.new(**JSON.parse(value)) }
@@ -50,6 +48,16 @@ module CoverRage
 
       def clear
         @redis.del(KEY)
+      end
+
+      private
+
+      def new_redis(url)
+        if url.start_with?('rediss')
+          ::Redis.new(url:, ssl_params: { verify_mode: OpenSSL::SSL::VERIFY_NONE })
+        else
+          ::Redis.new(url:)
+        end
       end
     end
   end
